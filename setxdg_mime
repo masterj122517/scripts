@@ -1,0 +1,7 @@
+#!/bin/bash
+xdg-mime default sxiv.desktop image/png
+xdg-mime default sxiv.desktop image/jpg
+xdg-mime default sxiv.desktop image/avif
+xdg-mime default org.pwmt.zathura.desktop application/pdf 
+xdg-mime default nvim.desktop text/x-tex 
+
