@@ -1,2 +1,0 @@
-#!/bin/bash
-cd ~/Apps/Tor && ./start-tor-browser.desktop 
