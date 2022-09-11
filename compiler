@@ -49,6 +49,7 @@ case "$ext" in
 	py) python "$file" ;;
 	[rR]md) Rscript -e "rmarkdown::render('$file', quiet=TRUE)" ;;
 	rs) cargo build ;;
+  doc) libreoffice --invisible --convert-to pdf --outdir ~/ "$file" ;;
 	sass) sassc -a "$file" "$base.css" ;;
 	scad) openscad -o "$base".stl "$file" ;;
 	sent) setsid -f sent "$file" 2>/dev/null ;;
