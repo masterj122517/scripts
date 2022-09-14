@@ -1,134 +1,4 @@
 #!/bin/bash
-# Screenshot: http://s.natalian.org/2013-08-17/dwm_status.png
-# Network speed stuff stolen from http://linuxclues.blogspot.sg/2009/11/shell-script-show-network-speed.html
-
-# This function parses /proc/net/dev file searching for a line containing $interface data.
-# Within that line, the first and ninth numbers after ':' are respectively the received and transmited bytes.
-function get_bytes {
-	# Find active network interface
-	interface=$(ip route get 8.8.8.8 2>/dev/null| awk '{print $5}')
-	line=$(grep $interface /proc/net/dev | cut -d ':' -f 2 | awk '{print "received_bytes="$1, "transmitted_bytes="$9}')
-	eval $line
-	now=$(date +%s%N)
-}
-
-# Function which calculates the speed using actual and old byte number.
-# Speed is shown in KByte per second when greater or equal than 1 KByte per second.
-# This function should be called each second.
-
-function get_velocity {
-	value=$1
-	old_value=$2
-	now=$3
-
-	timediff=$(($now - $old_time))
-	velKB=$(echo "1000000000*($value-$old_value)/1024/$timediff" | bc)
-	if test "$velKB" -gt 1024
-	then
-		echo $(echo "scale=2; $velKB/1024" | bc)MB/s
-	else
-		echo ${velKB}KB/s
-	fi
-}
-
-# Get initial values
-get_bytes
-old_received_bytes=$received_bytes
-old_transmitted_bytes=$transmitted_bytes
-old_time=$now
-
-print_volume() {
-	volume="$(amixer get Master | tail -n1 | sed -r 's/.*\[(.*)%\].*/\1/')"
-	if test "$volume" -gt 0
-	then
-		echo -e "\uE05D${volume}"
-	else
-		echo -e "Mute"
-	fi
-}
-
-print_mem(){
-	memfree=$(($(grep -m1 'MemAvailable:' /proc/meminfo | awk '{print $2}') / 1024))
-	echo -e "$memfree"
-}
-
-print_temp(){
-	test -f /sys/class/thermal/thermal_zone0/temp || return 0
-	echo $(head -c 2 /sys/class/thermal/thermal_zone0/temp)C
-}
-
-#!/bin/bash
-
-get_time_until_charged() {
-
-	# parses acpitool's battery info for the remaining charge of all batteries and sums them up
-	sum_remaining_charge=$(acpitool -B | grep -E 'Remaining capacity' | awk '{print $4}' | grep -Eo "[0-9]+" | paste -sd+ | bc);
-
-	# finds the rate at which the batteries being drained at
-	present_rate=$(acpitool -B | grep -E 'Present rate' | awk '{print $4}' | grep -Eo "[0-9]+" | paste -sd+ | bc);
-
-	# divides current charge by the rate at which it's falling, then converts it into seconds for `date`
-	seconds=$(bc <<< "scale = 10; ($sum_remaining_charge / $present_rate) * 3600");
-
-	# prettifies the seconds into h:mm:ss format
-	pretty_time=$(date -u -d @${seconds} +%T);
-
-	echo $pretty_time;
-}
-
-get_battery_combined_percent() {
-
-	# get charge of all batteries, combine them
-	total_charge=$(expr $(acpi -b | awk '{print $4}' | grep -Eo "[0-9]+" | paste -sd+ | bc));
-
-	# get amount of batteries in the device
-	battery_number=$(acpi -b | wc -l);
-
-	percent=$(expr $total_charge / $battery_number);
-
-	echo $percent;
-}
-
-get_battery_charging_status() {
-
-	if $(acpi -b | grep --quiet Discharging)
-	then
-		echo "🔋";
-	else # acpi can give Unknown or Charging if charging, https://unix.stackexchange.com/questions/203741/lenovo-t440s-battery-status-unknown-but-charging
-		echo "🔌";
-	fi
-}
-
-
-
-print_bat(){
-	#hash acpi || return 0
-	#onl="$(grep "on-line" <(acpi -V))"
-	#charge="$(awk '{ sum += $1 } END { print sum }' /sys/class/power_supply/BAT*/capacity)%"
-	#if test -z "$onl"
-	#then
-		## suspend when we close the lid
-		##systemctl --user stop inhibit-lid-sleep-on-battery.service
-		#echo -e "${charge}"
-	#else
-		## On mains! no need to suspend
-		##systemctl --user start inhibit-lid-sleep-on-battery.service
-		#echo -e "${charge}"
-	#fi
-	#echo "$(get_battery_charging_status) $(get_battery_combined_percent)%, $(get_time_until_charged )";
-	echo "$(get_battery_charging_status) $(get_battery_combined_percent)%, $(get_time_until_charged )";
-}
-
-print_date(){
-	date '+%Y年%m月%d日 %H:%M'
-}
-
-show_record(){
-	test -f /tmp/r2d2 || return
-	rp=$(cat /tmp/r2d2 | awk '{print $2}')
-	size=$(du -h $rp | awk '{print $1}')
-	echo " $size $(basename $rp)"
-}
 
 
 LOC=$(readlink -f "$0")
@@ -151,7 +21,6 @@ export IDENTIFIER="unicode"
 #. "$DIR/dwmbar-functions/dwm_ccurse.sh"
 #. "$DIR/dwmbar-functions/dwm_date.sh"
 
-get_bytes
 
 print_others() {
     icons=()
@@ -164,15 +33,114 @@ print_others() {
     fi
 }
 
-# Calculates speeds
-vel_recv=$(get_velocity $received_bytes $old_received_bytes $now)
-vel_trans=$(get_velocity $transmitted_bytes $old_transmitted_bytes $now)
 
-xsetroot -name "$(print_others)$(print_mem)M ⬇️ $vel_recv ⬆️ $vel_trans $(dwm_alsa) $(battery) $(show_record)⌛ $(print_date) "
-#xsetroot -name "🐻🥶👹 $(cpu) $(dwm_disk) $(dwm_alsa) $(print_bat) $(show_record)⌛ $(print_date) "
-# Update old values to perform new calculations
-old_received_bytes=$received_bytes
-old_transmitted_bytes=$transmitted_bytes
-old_time=$now
+print_others() {
+    icons=()
+    [ "$(docker ps | grep v2raya)" ] && icons=(${icons[@]} "")
+    [ "$(docker ps | grep 'arch')" ] && icons=(${icons[@]} "")
+    [ "$(bluetoothctl info 64:03:7F:7C:81:15 | grep 'Connected: yes')" ] && icons=(${icons[@]} "")
+    [ "$(bluetoothctl info 8C:DE:F9:E6:E5:6B | grep 'Connected: yes')" ] && icons=(${icons[@]} "")
+    [ "$(bluetoothctl info 88:C9:E8:14:2A:72 | grep 'Connected: yes')" ] && icons=(${icons[@]} "")
+    [ "$(ps -aux | grep 'danmu_sender' | sed 1d)" ] && icons=(${icons[@]} "ﳲ")
+    [ "$(ps -aux | grep 'aria2c' | sed 1d)" ] && icons=(${icons[@]} "")
+    [ "$AUTOSCREEN" = "OFF" ]  && icons=(${icons[@]} "ﴸ")
 
-exit 0
+    if [ "$icons" ]; then
+        text=" ${icons[@]} "
+        color=$others_color
+        printf "%s%s%s" "$color" "$text" "$s2d_reset"
+    fi
+}
+
+print_cpu() {
+    cpu_icon="閭"
+    cpu_text=$(top -n 1 -b | sed -n '3p' | awk '{printf "%02d%", 100 - $8}')
+
+    text=" $cpu_icon $cpu_text "
+    color=$cpu_color
+    printf "%s%s%s" "$color" "$text" "$s2d_reset"
+}
+
+print_mem() {
+    mem_total=$(cat /proc/meminfo | grep "MemTotal:"|awk '{print $2}')
+    mem_free=$(cat /proc/meminfo | grep "MemFree:"|awk '{print $2}')
+    mem_buffers=$(cat /proc/meminfo | grep "Buffers:"|awk '{print $2}')
+    mem_cached=$(cat /proc/meminfo | grep -w "Cached:"|awk '{print $2}')
+    men_usage_rate=$(((mem_total - mem_free - mem_buffers - mem_cached) * 100 / mem_total))
+	mem_icon=""
+    mem_text=$(echo $men_usage_rate | awk '{printf "%02d%", $1}')
+    text=" $mem_icon $mem_text "
+    color=$mem_color
+    printf "%s%s%s" "$color" "$text" "$s2d_reset"
+}
+
+print_time() {
+    time_text="$(date '+%m/%d %H:%M')"
+    case "$(date '+%I')" in
+        "01") time_icon="" ;;
+        "02") time_icon="" ;;
+        "03") time_icon="" ;;
+        "04") time_icon="" ;;
+        "05") time_icon="" ;;
+        "06") time_icon="" ;;
+        "07") time_icon="" ;;
+        "08") time_icon="" ;;
+        "09") time_icon="" ;;
+        "10") time_icon="" ;;
+        "11") time_icon="" ;;
+        "12") time_icon="" ;;
+    esac
+
+    text=" $time_icon $time_text "
+    color=$time_color
+    printf "%s%s%s" "$color" "$text" "$s2d_reset"
+}
+
+print_vol() {
+    OUTPORT=$SPEAKER
+    [ "$(pactl list sinks | grep $HEADPHONE_A2DP)" ] && OUTPORT=$HEADPHONE_A2DP
+    [ "$(pactl list sinks | grep $HEADPHONE_HSP_HFP)" ] && OUTPORT=$HEADPHONE_HSP_HFP
+    [ "$(pactl list sinks | grep $HEADPHONE_A2DP_SONY)" ] && OUTPORT=$HEADPHONE_A2DP_SONY
+    [ "$(pactl list sinks | grep $HEADPHONE_HSP_HFP_SONY)" ] && OUTPORT=$HEADPHONE_HSP_HFP_SONY
+    [ "$(pactl list sinks | grep $VOICEBOX)" ] && OUTPORT=$VOICEBOX
+    volunmuted=$(pactl list sinks | grep $OUTPORT -A 10 | grep 'Mute: no')
+    vol_text=$(pactl list sinks | grep $OUTPORT -A 8 | sed -n '8p' | awk '{printf int($5)}')
+    if [ "$vol_text" -eq 0 ] || [ ! "$volunmuted" ]; then vol_text="--"; vol_icon="婢";
+    elif [ "$vol_text" -lt 10 ]; then vol_icon="奄"; vol_text=0$vol_text;
+    elif [ "$vol_text" -le 20 ]; then vol_icon="奄";
+    elif [ "$vol_text" -le 60 ]; then vol_icon="奔";
+    else vol_icon="墳"; fi
+
+    vol_text=$vol_text%
+
+    text=" $vol_icon $vol_text "
+    color=$vol_color
+    printf "%s%s%s" "$color" "$text" "$s2d_reset"
+}
+
+print_bat() {
+    bat_text=$(acpi -b | sed 2d | awk '{print $4}' | grep -Eo "[0-9]+")
+    [ ! "$bat_text" ] && bat_text=$(acpi -b | sed 2d | awk '{print $5}' | grep -Eo "[0-9]+")
+    [ ! "$(acpi -b | grep 'Battery 0' | grep Discharging)" ] && charge_icon=""
+    if  [ "$bat_text" -ge 95 ]; then charge_icon=""; bat_icon="";
+    elif [ "$bat_text" -ge 90 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 80 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 70 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 60 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 50 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 40 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 30 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 20 ]; then bat_icon="";
+    elif [ "$bat_text" -ge 10 ]; then bat_icon="";
+    else bat_icon=""; fi
+
+    bat_text=$bat_text%
+    bat_icon=$charge_icon$bat_icon
+
+    text=" $bat_icon $bat_text "
+    color=$bat_color
+    printf "%s%s%s" "$color" "$text" "$s2d_reset"
+}
+
+xsetroot -name "$(print_others)$(print_cpu)$(print_mem)$(print_time)$(dwm_alsa)$(print_bat)"
+#xsetroot -name "$(print_others)$(print_mem)M ⬇️$vel_recv ⬆️$vel_trans $(dwm_alsa) $(battery) $(show_record)$(print_date) "
