@@ -16,5 +16,6 @@
 
 #xwallpaper --zoom ~/.local/share/bg
 pipewire &
+nm-applet &
 
 libinput-gestures-setup start & 
