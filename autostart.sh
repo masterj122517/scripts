@@ -11,11 +11,27 @@
 #/bin/bash ~/scripts/setxmodmap-colemak.sh & 
 #/bin/bash ~/scripts/xmodmap-emacs.sh & 
 #variety & 
-/bin/bash ~/scripts/dwm-status.sh & 
 #fcitx &
+#/bin/bash ~/scripts/dwm-status.sh &
 
-#xwallpaper --zoom ~/.local/share/bg
-pipewire &
-nm-applet &
+source ~/.profile
+source ~/.config/zsh/env.zsh
+$DWM/statusbar/statusbar.sh cron &
 
-libinput-gestures-setup start & 
+
+settings() {
+    [ $1 ] && sleep $1
+    $DWM/statusbar/statusbar.sh cron &
+}
+
+
+daemons() {
+    [ $1 ] && sleep $1
+    fcitx5 &
+    nm-applet &
+    xfce4-power-manager &
+}
+
+
+settings 1 &
+daemons 3 &
