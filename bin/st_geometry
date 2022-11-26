@@ -1,3 +1,5 @@
+# 用于获取st的geometry
+
 st_geometry() {
     # 单位x = 9, 单位y = 18
     uw=8; uh=17
@@ -29,5 +31,3 @@ st_geometry() {
     esac
     echo $c\x$l+$x+$y
 }
-
-st -c float -g $(st_geometry center 100 30)
