@@ -1,6 +1,5 @@
 
-#source ~/.profile
-source ~/.config/zsh/env.zsh
+~/.zprofile
 $DWM/statusbar/statusbar.sh cron &
 
 
